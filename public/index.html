@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Heartwise</title>
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --paper: #f6f1e8; --ink: #2b2620; --soft: #6f665a; --faint: #a69c8d;
+    --line: #e2d9c9; --field: #fffdf8; --accent: #8a4b2f;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper: #1b1815; --ink: #ece4d6; --soft: #a99f90; --faint: #7a7166;
+            --line: #332e28; --field: #23201c; --accent: #d79a78; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif);
+         font-size: 19px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+         display: flex; flex-direction: column; }
+  .col { width: 100%; max-width: 640px; margin: 0 auto; padding: 0 20px; }
+  header .col { display: flex; justify-content: space-between; align-items: baseline;
+                padding-top: 18px; padding-bottom: 10px; }
+  .mark { font-size: 15px; letter-spacing: .08em; color: var(--soft); }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  .quiet { font-family: var(--sans); font-size: 13px; color: var(--faint); }
+  .quiet button { color: var(--soft); text-decoration: underline; text-underline-offset: 3px; margin-left: 10px; }
+  button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  main { flex: 1; overflow-y: auto; }
+  #welcome { padding: 3vh 0 24px; }
+  :root { --heart: #c4553f; --heart-hi: #ee9a7c; }
+  @media (prefers-color-scheme: dark) { :root { --heart: #cf6a52; --heart-hi: #f7b79b; } }
+  /* Every rhythm here is a whole multiple of one heartbeat (1s), so they all meet again
+     every 20s: beat 1s, firefly flash 2s, breath and ocean swell 10s, sway 20s. */
+  #welcome { text-align: center; }
+  #welcome p { margin-left: auto; margin-right: auto; }
+  .stage { position: relative; width: min(64vw, 340px, 36vh); aspect-ratio: 1; margin: 7% auto 4px; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .stage .air { position: absolute; inset: -18%; width: 136%; height: 136%; overflow: visible; }
+  .air .halo { animation: breath 10s ease-in-out infinite; }
+  .air .ring { fill: none; stroke: var(--heart); stroke-width: 1.2; vector-effect: non-scaling-stroke;
+               opacity: 0; animation: ripple 3s cubic-bezier(.15,.6,.3,1) infinite; }
+  .air .r2 { animation-delay: 1s; } .air .r3 { animation-delay: 2s; }
+  .air .sea { animation: bob 10s ease-in-out infinite; }
+  .air .swell { fill: none; stroke: var(--heart); stroke-width: 1.2; stroke-linecap: round; opacity: .32;
+                vector-effect: non-scaling-stroke; animation: swell 10s linear infinite; }
+  .air .s2 { opacity: .2; animation-duration: 20s; animation-direction: reverse; }
+  .air .s3 { opacity: .13; animation-delay: -5s; }
+  .air .fly { fill: var(--heart-hi); opacity: 0; animation: flash 2s ease-out infinite; }
+  .air .fly.slow { animation-duration: 4s; }
+  .air .flies { animation: drift 20s ease-in-out infinite; }
+  .air .flat { display: none; fill: var(--heart); }
+  .stage.nogl .flat { display: block; } .stage.nogl canvas { display: none; }
+  .sound { font-family: var(--sans); font-size: 12px; letter-spacing: .06em; color: var(--faint);
+           margin: 0 0 18px; padding: 6px 10px; }
+  @keyframes breath { 0%, 100% { opacity: .5; transform: scale(.9); } 50% { opacity: 1; transform: scale(1.06); } }
+  @keyframes ripple { 0% { transform: scale(1); opacity: 0; } 12% { opacity: .3; } 100% { transform: scale(2.5); opacity: 0; } }
+  @keyframes swell { from { transform: translateX(0); } to { transform: translateX(200px); } }
+  @keyframes bob { 0%, 100% { transform: translateY(5px); } 50% { transform: translateY(-5px); } }
+  @keyframes flash { 0%, 60%, 100% { opacity: 0; } 16% { opacity: .95; } }
+  @keyframes drift { 0%, 100% { transform: translate(-5px, 3px); } 50% { transform: translate(5px, -3px); } }
+  @media (prefers-reduced-motion: reduce) { .air * { animation: none !important; } .air .fly { opacity: .5; } }
+  #welcome h1 { font-weight: 400; font-size: 34px; line-height: 1.2; margin: 0 0 14px; text-wrap: balance; }
+  #welcome p { color: var(--soft); margin: 0 0 26px; max-width: 30em; }
+  .door { display: block; margin: 0 auto 10px; color: var(--accent);
+          text-decoration: underline; text-underline-offset: 4px; }
+  #welcome .creed { font-size: 15px; letter-spacing: .04em; color: var(--faint); margin: 40px auto 0; }
+
+  #thread { padding: 16px 0 28px; }
+  .turn { margin: 0 0 26px; white-space: pre-wrap; overflow-wrap: break-word; }
+  .turn.you { font-family: var(--sans); font-size: 16px; color: var(--soft);
+              border-left: 2px solid var(--line); padding-left: 14px; }
+  .turn.waiting::after { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+              background: var(--faint); animation: breathe 2.4s ease-in-out infinite; }
+  @keyframes breathe { 0%, 100% { opacity: .25; } 50% { opacity: .9; } }
+  @media (prefers-reduced-motion: reduce) { .turn.waiting::after { animation: none; opacity: .6; } }
+  .note { font-family: var(--sans); font-size: 14px; color: var(--soft); background: var(--field);
+          border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 0 0 26px; }
+  .note button { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; margin-left: 6px; }
+  .note code { font-size: 13px; }
+
+  footer { border-top: 1px solid var(--line); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  form { display: flex; gap: 10px; align-items: flex-end; padding-top: 12px; }
+  textarea { flex: 1; resize: none; font: inherit; color: var(--ink); background: var(--field);
+             border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; max-height: 40vh; }
+  textarea::placeholder { color: var(--faint); }
+  #send { font-family: var(--sans); font-size: 15px; color: var(--paper); background: var(--ink);
+          border-radius: 12px; padding: 12px 18px; min-height: 46px; }
+  #send:disabled { opacity: .35; cursor: default; }
+  .small { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: var(--faint); margin: 10px 0 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header><div class="col">
+  <span class="mark">Heartwise</span>
+  <span class="quiet" id="reset" hidden>
+    <span id="resetAsk" hidden>Erase this conversation?</span>
+    <button type="button" id="resetYes" hidden>Erase</button>
+    <button type="button" id="resetNo" hidden>Keep</button>
+    <button type="button" id="resetBtn">Begin again</button>
+  </span>
+</div></header>
+
+<main id="scroll"><div class="col">
+  <section id="welcome">
+    <div class="stage" id="stage" aria-hidden="true">
+      <svg class="air" viewBox="-200 -200 400 400">
+        <defs>
+          <radialGradient id="halo" cx="0" cy="0" r="185" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="var(--heart)" stop-opacity=".36"/><stop offset="1" stop-color="var(--heart)" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="fade"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".3" stop-color="#fff"/>
+            <stop offset=".7" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+          <mask id="edge" maskUnits="userSpaceOnUse" x="-200" y="-200" width="400" height="400"><rect x="-200" y="-200" width="400" height="400" fill="url(#fade)"/></mask>
+        </defs>
+        <circle class="halo" r="185" fill="url(#halo)"/>
+        <circle class="ring" r="72"/><circle class="ring r2" r="72"/><circle class="ring r3" r="72"/>
+        <g mask="url(#edge)"><g class="sea">
+          <g transform="translate(-200 112)"><path class="swell" d="M-400 0Q-350 -14 -300 0T-200 0T-100 0T0 0T100 0T200 0T300 0T400 0"/></g>
+          <g transform="translate(-200 132)"><path class="swell s2" d="M-400 0Q-350 10 -300 0T-200 0T-100 0T0 0T100 0T200 0T300 0T400 0"/></g>
+          <g transform="translate(-200 152)"><path class="swell s3" d="M-400 0Q-350 -8 -300 0T-200 0T-100 0T0 0T100 0T200 0T300 0T400 0"/></g>
+        </g></g>
+        <g class="flies"><circle class="fly" cx="-150" cy="-70" r="2.6" style="animation-delay:0.00s"/><circle class="fly" cx="138" cy="-112" r="2.6" style="animation-delay:0.08s"/><circle class="fly slow" cx="-96" cy="-150" r="2.6" style="animation-delay:0.14s"/><circle class="fly" cx="168" cy="20" r="2.6" style="animation-delay:0.05s"/><circle class="fly slow" cx="-172" cy="48" r="2.6" style="animation-delay:0.11s"/><circle class="fly" cx="84" cy="-164" r="2.6" style="animation-delay:0.03s"/><circle class="fly" cx="-40" cy="-178" r="2.6" style="animation-delay:0.09s"/><circle class="fly slow" cx="150" cy="96" r="2.6" style="animation-delay:0.12s"/><circle class="fly" cx="-140" cy="110" r="2.6" style="animation-delay:0.02s"/></g>
+        <path class="flat" transform="scale(1.3)" d="M0 62C-18 44-72 12-72-26C-72-52-52-68-32-68C-16-68-4-58 0-44C4-58 16-68 32-68C52-68 72-52 72-26C72 12 18 44 0 62Z"/>
+      </svg>
+      <canvas id="heart3d"></canvas>
+    </div>
+    <button type="button" class="sound" id="sound" aria-pressed="false">Listen</button>
+    <h1>What's on your mind?</h1>
+    <p>Something that happened. Someone you keep thinking about. Write it below, or begin another way.</p>
+    <button type="button" class="door" data-say="Show me something worth knowing.">Show me something worth knowing.</button>
+    <button type="button" class="door" data-say="I'd like to look back on my day.">Look back on today.</button>
+    <p class="creed">Less fear. More love. Greater happiness. Deeper purpose.</p>
+  </section>
+  <section id="thread" aria-live="polite"></section>
+</div></main>
+
+<footer><div class="col">
+  <form id="form">
+    <textarea id="box" rows="1" placeholder="Say it however it comes." aria-label="Your words"></textarea>
+    <button id="send" type="submit" disabled>Send</button>
+  </form>
+  <p class="small">Kept only on this device. This is an AI, not a therapist and not a substitute for the people in your life. If you are in danger, call your local emergency number. In the US, call or text 988.</p>
+</div></footer>
+
+<script>
+(function () {
+  var KEY = 'heartwise.thread';
+  var $ = function (id) { return document.getElementById(id); };
+  var thread = $('thread'), box = $('box'), send = $('send'), scroll = $('scroll');
+  var messages = [], busy = false, aborter = null;
+
+  var NOTES = {
+    no_key: 'No API key yet. Copy <code>.env.example</code> to <code>.env</code> in the heartwise folder, paste your Anthropic key into it, and restart.',
+    bad_key: 'The API key in <code>.env</code> was not accepted. Check it and restart.',
+    busy: 'The line is busy right now. Your words are safe.',
+    offline: 'Could not reach the service. Check your connection.',
+    declined: 'That reply could not be given.',
+    cut_short: 'That reply was cut short.',
+    failed: 'Something went wrong on this end. Your words are safe.'
+  };
+
+  try { messages = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { messages = []; }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(messages)); } catch (e) {} }
+
+  function add(role, text) {
+    var el = document.createElement('div');
+    el.className = 'turn ' + (role === 'user' ? 'you' : 'them');
+    el.textContent = text;
+    thread.appendChild(el);
+    return el;
+  }
+  function note(code, retry) {
+    var el = document.createElement('div');
+    el.className = 'note';
+    el.innerHTML = NOTES[code] || NOTES.failed;
+    if (retry && code !== 'no_key' && code !== 'bad_key') {
+      var b = document.createElement('button');
+      b.type = 'button'; b.textContent = 'Try again';
+      b.onclick = function () { el.remove(); answer(); };
+      el.appendChild(b);
+    }
+    thread.appendChild(el);
+  }
+  function chrome() {
+    $('welcome').hidden = messages.length > 0;
+    heartShow(messages.length === 0);
+    $('reset').hidden = messages.length === 0;
+    send.textContent = busy ? 'Stop' : 'Send';
+    send.disabled = !busy && !box.value.trim();
+  }
+  function bottom() { scroll.scrollTop = scroll.scrollHeight; }
+
+  function say(text) {
+    if (busy || !text.trim()) return;
+    Array.prototype.forEach.call(thread.querySelectorAll('.note'), function (n) { n.remove(); });
+    messages.push({ role: 'user', content: text.trim() });
+    save(); add('user', text.trim());
+    box.value = ''; grow();
+    answer();
+  }
+
+  async function answer() {
+    busy = true; aborter = new AbortController(); chrome();
+    var el = add('assistant', ''); el.classList.add('waiting'); bottom();
+    var text = '', problem = null, finished = false;
+    try {
+      var res = await fetch('/api/talk', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: messages }), signal: aborter.signal
+      });
+      if (!res.ok || !res.body) throw new Error('failed');
+      var reader = res.body.getReader(), dec = new TextDecoder(), buf = '';
+      for (;;) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += dec.decode(chunk.value, { stream: true });
+        var parts = buf.split('\n\n'); buf = parts.pop();
+        parts.forEach(function (p) {
+          if (p.indexOf('data: ') !== 0) return;
+          var ev = JSON.parse(p.slice(6));
+          if (ev.t) {
+            var stick = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 80;
+            text += ev.t; el.classList.remove('waiting'); el.textContent = text;
+            if (stick) bottom();
+          }
+          if (ev.error) problem = ev.error;
+          if (ev.done) finished = true;
+        });
+      }
+      if (!finished && !problem) problem = 'failed';
+    } catch (e) {
+      if (e.name !== 'AbortError') problem = 'offline';
+    }
+    el.classList.remove('waiting');
+    text = text.trim();
+    if (text) { el.textContent = text; messages.push({ role: 'assistant', content: text }); save(); }
+    else el.remove();
+    if (problem) note(problem, !text);
+    busy = false; aborter = null; chrome(); bottom();
+  }
+
+  function grow() { box.style.height = 'auto'; box.style.height = box.scrollHeight + 2 + 'px'; chrome(); }
+  box.addEventListener('input', grow);
+  box.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); say(box.value); }
+  });
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (busy) { if (aborter) aborter.abort(); } else say(box.value);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.door'), function (b) {
+    b.addEventListener('click', function () { say(b.getAttribute('data-say')); });
+  });
+
+  function asking(on) {
+    $('resetBtn').hidden = on; $('resetAsk').hidden = !on; $('resetYes').hidden = !on; $('resetNo').hidden = !on;
+  }
+  $('resetBtn').addEventListener('click', function () { asking(true); });
+  $('resetNo').addEventListener('click', function () { asking(false); });
+  $('resetYes').addEventListener('click', function () {
+    if (aborter) aborter.abort();
+    messages = []; save(); thread.textContent = ''; asking(false); chrome(); box.focus();
+  });
+
+
+  // ---- The heart: a real 3D surface, beating at a resting 60 beats a minute ----
+  var stage = $('stage'), cv = $('heart3d'), soundBtn = $('sound');
+  var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var gl = null, U = {}, running = false, shown = true;
+  var ac = null, master = null, sea = null, seaTone = null, listening = false, nextBeat = 0;
+  function now() { return (document.timeline && document.timeline.currentTime != null ? document.timeline.currentTime : performance.now()) / 1000; }
+  function bump(x) { return x < 0 ? 0 : (x / 0.055) * Math.exp(1 - x / 0.055); }
+  function rgb(name) {
+    var h = getComputedStyle(document.documentElement).getPropertyValue(name).trim().replace('#', '');
+    return [0, 2, 4].map(function (i) { return parseInt(h.substr(i, 2), 16) / 255; });
+  }
+  function setup() {
+    try { gl = cv.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false }); } catch (e) { gl = null; }
+    if (!gl) return false;
+    var vs = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}';
+    var fs = [
+      'precision highp float;',
+      'uniform vec2 uRes;uniform float uScale;uniform mat3 uR;uniform vec3 uCol;uniform vec3 uHi;',
+      'float f(vec3 p){p/=uScale;float y3=p.y*p.y*p.y;float a=p.x*p.x+2.25*p.z*p.z+p.y*p.y-1.;',
+      ' return a*a*a-p.x*p.x*y3-.1125*p.z*p.z*y3;}',
+      'vec4 shade(vec2 px){vec2 uv=(px*2.-uRes)/uRes.y;',
+      ' vec3 ro=vec3(0.,.12,4.6)*uR;vec3 rd=normalize(vec3(uv,-2.6))*uR;',
+      ' float t=3.,hit=-1.;for(int i=0;i<64;i++){if(f(ro+rd*t)<0.){hit=t;break;}t+=.05;}',
+      ' if(hit<0.)return vec4(0.);float a=hit-.05,b=hit;',
+      ' for(int i=0;i<7;i++){float m=.5*(a+b);if(f(ro+rd*m)<0.)b=m;else a=m;}',
+      ' vec3 p=ro+rd*b;vec2 e=vec2(.045,0.);',
+      ' vec3 n=normalize(vec3(f(p+e.xyy)-f(p-e.xyy),f(p+e.yxy)-f(p-e.yxy),f(p+e.yyx)-f(p-e.yyx))+vec3(0.,0.,1e-9));',
+      ' vec3 l=normalize(vec3(-.5,.75,.8))*uR;vec3 v=-rd;float d=max(dot(n,l),0.);',
+      ' vec3 c=uCol*(.5+.6*d)+uHi*.3*d*d;',
+      ' c+=uHi*.32*pow(1.-max(dot(n,v),0.),3.);',
+      ' c+=vec3(.6)*pow(max(dot(n,normalize(l+v)),0.),60.);',
+      ' return vec4(min(c,1.),1.);}',
+      'void main(){vec2 q=gl_FragCoord.xy;',
+      ' gl_FragColor=(shade(q+vec2(.25,.25))+shade(q+vec2(-.25,.25))+shade(q+vec2(.25,-.25))+shade(q+vec2(-.25,-.25)))*.25;}'
+    ].join('\n');
+    var prog = gl.createProgram();
+    [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]].forEach(function (d) {
+      var sh = gl.createShader(d[0]); gl.shaderSource(sh, d[1]); gl.compileShader(sh); gl.attachShader(prog, sh);
+    });
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return false;
+    gl.useProgram(prog);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.bindAttribLocation(prog, 0, 'a'); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    ['uRes', 'uScale', 'uR', 'uCol', 'uHi'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+    colors();
+    return true;
+  }
+  function colors() { if (gl) { gl.uniform3fv(U.uCol, rgb('--heart')); gl.uniform3fv(U.uHi, rgb('--heart-hi')); } }
+  function draw(t) {
+    var size = Math.round(cv.clientWidth * Math.min(window.devicePixelRatio || 1, 2));
+    if (!size) return;
+    if (cv.width !== size) { cv.width = cv.height = size; }
+    var beat = t - Math.floor(t), breath = -Math.cos(t * Math.PI / 5);
+    var pulse = still ? 0 : bump(beat) + 0.6 * bump(beat - 0.3);        // lub, then dub 0.3s later
+    var rot = still ? 0.35 : 0.5 * Math.sin(t * Math.PI / 10), tilt = -0.06 + (still ? 0 : 0.05 * breath);
+    var c = Math.cos(rot), s = Math.sin(rot), cx = Math.cos(tilt), sx = Math.sin(tilt);
+    gl.viewport(0, 0, size, size);
+    gl.uniform2f(U.uRes, size, size);
+    gl.uniform1f(U.uScale, 0.93 + 0.05 * pulse + (still ? 0 : 0.022 * breath));
+    gl.uniformMatrix3fv(U.uR, false, [c, 0, -s, s * sx, cx, c * sx, s * cx, -sx, c * cx]);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  function thump(when, freq, vol, len) {
+    var o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(freq * 1.5, when); o.frequency.exponentialRampToValueAtTime(freq, when + 0.06);
+    g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(vol, when + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + len);
+    o.connect(g); g.connect(master); o.start(when); o.stop(when + len + 0.05);
+  }
+  function sounds(t) {
+    if (!ac || !listening) return;
+    var breath = 0.5 - 0.5 * Math.cos(t * Math.PI / 5);                 // 0 at rest, 1 at the top of the breath
+    sea.gain.setTargetAtTime(0.02 + 0.07 * breath, ac.currentTime, 0.2);
+    seaTone.frequency.setTargetAtTime(260 + 520 * breath, ac.currentTime, 0.2);
+    if (nextBeat < t) nextBeat = Math.ceil(t);
+    while (nextBeat < t + 0.2) {
+      var at = ac.currentTime + (nextBeat - t);
+      thump(at, 55, 0.5, 0.16); thump(at + 0.3, 82.5, 0.3, 0.11);       // a low A and the fifth above it
+      nextBeat += 1;
+    }
+  }
+  function frame() {
+    if (!shown || document.hidden) { running = false; return; }
+    var t = now(); draw(t); sounds(t);
+    requestAnimationFrame(frame);
+  }
+  function heartShow(on) {
+    shown = on;
+    if (master) master.gain.setTargetAtTime(on && listening ? 1 : 0, ac.currentTime, 0.3);
+    if (!on || !gl) return;
+    if (still) { requestAnimationFrame(function () { draw(0); }); return; }
+    if (!running) { running = true; requestAnimationFrame(frame); }
+  }
+  soundBtn.addEventListener('click', function () {
+    listening = !listening;
+    if (listening && !ac) {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      master = ac.createGain(); master.gain.value = 0; master.connect(ac.destination);
+      var buf = ac.createBuffer(1, ac.sampleRate * 4, ac.sampleRate), d = buf.getChannelData(0), last = 0;
+      for (var i = 0; i < d.length; i++) { last = 0.97 * last + 0.03 * (Math.random() * 2 - 1); d[i] = last * 6; }
+      var src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+      seaTone = ac.createBiquadFilter(); seaTone.type = 'lowpass'; seaTone.frequency.value = 300;
+      sea = ac.createGain(); sea.gain.value = 0.02;
+      src.connect(seaTone); seaTone.connect(sea); sea.connect(master); src.start();
+    }
+    if (ac && ac.state === 'suspended') ac.resume();
+    master.gain.setTargetAtTime(listening ? 1 : 0, ac.currentTime, 0.3);
+    soundBtn.textContent = listening ? 'Quiet' : 'Listen';
+    soundBtn.setAttribute('aria-pressed', listening ? 'true' : 'false');
+  });
+  if (!setup()) { gl = null; stage.classList.add('nogl'); }
+  if (still) soundBtn.hidden = true;
+  // Start every CSS rhythm from the same zero as the heartbeat so they stay in step.
+  if (stage.getAnimations) stage.getAnimations({ subtree: true }).forEach(function (a) { a.startTime = 0; });
+  if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { colors(); if (still) draw(0); });
+  document.addEventListener('visibilitychange', function () { heartShow(shown); });
+  window.addEventListener('resize', function () { if (gl && still) draw(0); });
+
+  messages.forEach(function (m) { add(m.role, m.content); });
+  if (messages.length && messages[messages.length - 1].role === 'user') note('failed', true);
+  chrome(); bottom();
+  fetch('/api/ready').then(function (r) { return r.json(); })
+    .then(function (s) { if (!s.ready) note('no_key'); }).catch(function () {});
+})();
+</script>
+</body>
+</html>
