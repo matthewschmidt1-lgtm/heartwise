@@ -98,6 +98,8 @@
                 border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin: 0 0 10px; }
   #gate button { font-family: var(--sans); font-size: 15px; color: var(--paper); background: var(--ink);
                  border-radius: 12px; padding: 10px 22px; }
+  #gate .back { display: block; margin: 14px auto 0; background: none; color: var(--faint); font-size: 13px;
+                text-decoration: underline; text-underline-offset: 3px; padding: 4px; }
   #gate .miss { font-family: var(--sans); font-size: 13px; min-height: 1.5em; margin: 10px 0 0; }
   body.gated #gate { display: block; }
   body.gated #welcome h1, body.gated #welcome > p, body.gated .door, body.gated #thread,
@@ -142,9 +144,10 @@
     </div>
     <button type="button" class="sound" id="sound" aria-pressed="false">Listen</button>
     <form id="gate">
-      <p id="gateSay">Heartwise is private for now.</p>
+      <p id="gateSay">Heartwise is private for now. Enter the access code to go on.</p>
       <input id="code" type="password" autocomplete="off" aria-label="Access code" placeholder="Access code">
       <button type="submit" id="gateGo">Enter</button>
+      <button type="button" id="gateBack" class="back">Not now</button>
       <p class="miss" id="miss" aria-live="polite"></p>
     </form>
     <h1>What's on your mind?</h1>
@@ -169,7 +172,7 @@
   var KEY = 'heartwise.thread';
   var $ = function (id) { return document.getElementById(id); };
   var thread = $('thread'), box = $('box'), send = $('send'), scroll = $('scroll');
-  var messages = [], busy = false, aborter = null, gated = false, code = '';
+  var messages = [], busy = false, aborter = null, gated = false, locked = false, authed = false, held = null, code = '';
   try { code = localStorage.getItem('heartwise.code') || ''; } catch (e) {}
 
   var NOTES = {
@@ -179,6 +182,7 @@
     offline: 'Could not reach the service. Check your connection.',
     declined: 'That reply could not be given.',
     cut_short: 'That reply was cut short.',
+    no_code: 'Heartwise is closed until its owner sets an access code (a variable named <code>ACCESS_CODE</code>).',
     failed: 'Something went wrong on this end. Your words are safe.'
   };
 
@@ -196,7 +200,7 @@
     var el = document.createElement('div');
     el.className = 'note';
     el.innerHTML = NOTES[code] || NOTES.failed;
-    if (retry && code !== 'no_key' && code !== 'bad_key') {
+    if (retry && code !== 'no_key' && code !== 'bad_key' && code !== 'no_code') {
       var b = document.createElement('button');
       b.type = 'button'; b.textContent = 'Try again';
       b.onclick = function () { el.remove(); answer(); };
@@ -216,6 +220,7 @@
 
   function say(text) {
     if (busy || !text.trim()) return;
+    if (locked && !authed) { held = text; box.value = ''; grow(); gated = true; chrome(); $('code').focus(); return; }
     Array.prototype.forEach.call(thread.querySelectorAll('.note'), function (n) { n.remove(); });
     messages.push({ role: 'user', content: text.trim() });
     save(); add('user', text.trim());
@@ -232,7 +237,8 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: messages, code: code }), signal: aborter.signal
       });
-      if (res.status === 401 || res.status === 403) { gated = true; el.remove(); busy = false; aborter = null; chrome(); return; }
+      if (res.status === 401) { authed = false; held = ''; gated = true; el.remove(); busy = false; aborter = null; chrome(); $('code').focus(); return; }
+      if (res.status === 403) { el.remove(); busy = false; aborter = null; chrome(); note('no_code'); return; }
       if (!res.ok || !res.body) throw new Error('failed');
       var reader = res.body.getReader(), dec = new TextDecoder(), buf = '';
       for (;;) {
@@ -425,17 +431,20 @@
       $('gateGo').disabled = false;
       if (!ok) { $('miss').textContent = 'That code did not match.'; return; }
       code = tryCode; try { localStorage.setItem('heartwise.code', code); } catch (e) {}
-      $('code').value = ''; gated = false; chrome(); bottom(); box.focus();
+      $('code').value = ''; authed = true; gated = false; chrome(); bottom();
+      var waiting = held; held = null;
+      if (waiting) say(waiting); else if (waiting === '') answer(); else box.focus();
     }).catch(function () { $('gateGo').disabled = false; $('miss').textContent = 'Could not reach Heartwise.'; });
   });
+  $('gateBack').addEventListener('click', function () {
+    if (held) { box.value = held; }
+    held = null; gated = false; $('miss').textContent = ''; chrome(); grow(); box.focus();
+  });
   fetch('/api/ready').then(function (r) { return r.json(); }).then(function (s) {
-    if (s.gate === 'unset') {
-      gated = true; chrome();
-      $('gateSay').textContent = 'Heartwise is closed until its owner sets an access code.';
-      $('code').hidden = true; $('gateGo').hidden = true;
-    } else if (s.gate === 'locked') {
-      gated = true; chrome();
-      if (code) enter(code).then(function (ok) { if (ok) { gated = false; chrome(); bottom(); } });
+    if (s.gate === 'unset') note('no_code');
+    else if (s.gate === 'locked') {
+      locked = true;
+      if (code) enter(code).then(function (ok) { authed = ok; });
     }
     if (!s.ready && s.gate !== 'unset') note('no_key');
   }).catch(function () {});

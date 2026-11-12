@@ -36,10 +36,15 @@ def has_key():
     return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
 
 
+def access_code():
+    # Tolerate a code pasted with spaces or quotation marks around it.
+    return os.environ.get("ACCESS_CODE", "").strip().strip("'\"").strip()
+
+
 def gate():
     """'open' on your own machine with no code set, 'locked' when ACCESS_CODE is set,
     'unset' when hosted without one (a public address never runs unprotected)."""
-    if os.environ.get("ACCESS_CODE", "").strip():
+    if access_code():
         return "locked"
     return "unset" if os.environ.get("RAILWAY_ENVIRONMENT") else "open"
 
@@ -50,7 +55,7 @@ def admitted(code):
         return True
     if state == "unset" or not isinstance(code, str):
         return False
-    return hmac.compare_digest(code.strip().encode(), os.environ["ACCESS_CODE"].strip().encode())
+    return hmac.compare_digest(code.strip().encode(), access_code().encode())
 
 
 def clean(messages):
