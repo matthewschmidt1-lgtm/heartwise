@@ -92,6 +92,16 @@
           border-radius: 12px; padding: 12px 18px; min-height: 46px; }
   #send:disabled { opacity: .35; cursor: default; }
   .small { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: var(--faint); margin: 10px 0 0; }
+  #gate { display: none; margin: 8px auto 0; max-width: 300px; }
+  #gate p { color: var(--soft); margin: 0 0 14px; }
+  #gate input { width: 100%; font: inherit; text-align: center; color: var(--ink); background: var(--field);
+                border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin: 0 0 10px; }
+  #gate button { font-family: var(--sans); font-size: 15px; color: var(--paper); background: var(--ink);
+                 border-radius: 12px; padding: 10px 22px; }
+  #gate .miss { font-family: var(--sans); font-size: 13px; min-height: 1.5em; margin: 10px 0 0; }
+  body.gated #gate { display: block; }
+  body.gated #welcome h1, body.gated #welcome > p, body.gated .door, body.gated #thread,
+  body.gated #form, body.gated #reset { display: none; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -131,6 +141,12 @@
       <canvas id="heart3d"></canvas>
     </div>
     <button type="button" class="sound" id="sound" aria-pressed="false">Listen</button>
+    <form id="gate">
+      <p id="gateSay">Heartwise is private for now.</p>
+      <input id="code" type="password" autocomplete="off" aria-label="Access code" placeholder="Access code">
+      <button type="submit" id="gateGo">Enter</button>
+      <p class="miss" id="miss" aria-live="polite"></p>
+    </form>
     <h1>What's on your mind?</h1>
     <p>Something that happened. Someone you keep thinking about. Write it below, or begin another way.</p>
     <button type="button" class="door" data-say="Show me something worth knowing.">Show me something worth knowing.</button>
@@ -153,7 +169,8 @@
   var KEY = 'heartwise.thread';
   var $ = function (id) { return document.getElementById(id); };
   var thread = $('thread'), box = $('box'), send = $('send'), scroll = $('scroll');
-  var messages = [], busy = false, aborter = null;
+  var messages = [], busy = false, aborter = null, gated = false, code = '';
+  try { code = localStorage.getItem('heartwise.code') || ''; } catch (e) {}
 
   var NOTES = {
     no_key: 'No API key yet. On your own computer, copy <code>.env.example</code> to <code>.env</code> and paste your Anthropic key into it. On Railway, add a variable named <code>ANTHROPIC_API_KEY</code>. Then restart.',
@@ -188,8 +205,9 @@
     thread.appendChild(el);
   }
   function chrome() {
-    $('welcome').hidden = messages.length > 0;
-    heartShow(messages.length === 0);
+    document.body.classList.toggle('gated', gated);
+    $('welcome').hidden = messages.length > 0 && !gated;
+    heartShow(messages.length === 0 || gated);
     $('reset').hidden = messages.length === 0;
     send.textContent = busy ? 'Stop' : 'Send';
     send.disabled = !busy && !box.value.trim();
@@ -212,8 +230,9 @@
     try {
       var res = await fetch('/api/talk', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messages }), signal: aborter.signal
+        body: JSON.stringify({ messages: messages, code: code }), signal: aborter.signal
       });
+      if (res.status === 401 || res.status === 403) { gated = true; el.remove(); busy = false; aborter = null; chrome(); return; }
       if (!res.ok || !res.body) throw new Error('failed');
       var reader = res.body.getReader(), dec = new TextDecoder(), buf = '';
       for (;;) {
@@ -393,8 +412,33 @@
   messages.forEach(function (m) { add(m.role, m.content); });
   if (messages.length && messages[messages.length - 1].role === 'user') note('failed', true);
   chrome(); bottom();
-  fetch('/api/ready').then(function (r) { return r.json(); })
-    .then(function (s) { if (!s.ready) note('no_key'); }).catch(function () {});
+  function enter(tryCode) {
+    return fetch('/api/enter', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: tryCode }) }).then(function (r) { return r.ok; });
+  }
+  $('gate').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var tryCode = $('code').value.trim();
+    if (!tryCode) return;
+    $('gateGo').disabled = true; $('miss').textContent = '';
+    enter(tryCode).then(function (ok) {
+      $('gateGo').disabled = false;
+      if (!ok) { $('miss').textContent = 'That code did not match.'; return; }
+      code = tryCode; try { localStorage.setItem('heartwise.code', code); } catch (e) {}
+      $('code').value = ''; gated = false; chrome(); bottom(); box.focus();
+    }).catch(function () { $('gateGo').disabled = false; $('miss').textContent = 'Could not reach Heartwise.'; });
+  });
+  fetch('/api/ready').then(function (r) { return r.json(); }).then(function (s) {
+    if (s.gate === 'unset') {
+      gated = true; chrome();
+      $('gateSay').textContent = 'Heartwise is closed until its owner sets an access code.';
+      $('code').hidden = true; $('gateGo').hidden = true;
+    } else if (s.gate === 'locked') {
+      gated = true; chrome();
+      if (code) enter(code).then(function (ok) { if (ok) { gated = false; chrome(); bottom(); } });
+    }
+    if (!s.ready && s.gate !== 'unset') note('no_key');
+  }).catch(function () {});
 })();
 </script>
 </body>

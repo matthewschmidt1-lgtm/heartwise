@@ -4,6 +4,7 @@ Run with ./run.sh. The API key is read from a .env file beside this script
 (ANTHROPIC_API_KEY=...) or from the environment. `--rehearsal` streams a canned
 reply so the page can be checked without a key.
 """
+import hmac
 import json
 import os
 import sys
@@ -33,6 +34,23 @@ def load_env():
 
 def has_key():
     return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
+
+
+def gate():
+    """'open' on your own machine with no code set, 'locked' when ACCESS_CODE is set,
+    'unset' when hosted without one (a public address never runs unprotected)."""
+    if os.environ.get("ACCESS_CODE", "").strip():
+        return "locked"
+    return "unset" if os.environ.get("RAILWAY_ENVIRONMENT") else "open"
+
+
+def admitted(code):
+    state = gate()
+    if state == "open":
+        return True
+    if state == "unset" or not isinstance(code, str):
+        return False
+    return hmac.compare_digest(code.strip().encode(), os.environ["ACCESS_CODE"].strip().encode())
 
 
 def clean(messages):
@@ -83,7 +101,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?")[0]
         if path == "/api/ready":
-            return self.send_json(200, {"ready": REHEARSAL or has_key()})
+            return self.send_json(200, {"ready": REHEARSAL or has_key(), "gate": gate()})
         target = (PUBLIC / ("index.html" if path == "/" else path.lstrip("/"))).resolve()
         if PUBLIC not in target.parents or not target.is_file():
             return self.send_json(404, {"error": "not found"})
@@ -100,15 +118,24 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.flush()
 
     def do_POST(self):
-        if self.path != "/api/talk":
+        if self.path not in ("/api/talk", "/api/enter"):
             return self.send_json(404, {"error": "not found"})
         length = int(self.headers.get("Content-Length") or 0)
         if length > MAX_BODY:
             return self.send_json(413, {"error": "too large"})
         try:
-            messages = clean(json.loads(self.rfile.read(length)).get("messages"))
-        except (ValueError, AttributeError):
-            messages = []
+            body = json.loads(self.rfile.read(length))
+            body = body if isinstance(body, dict) else {}
+        except ValueError:
+            body = {}
+        if not admitted(body.get("code")):
+            if gate() == "unset":
+                return self.send_json(403, {"error": "no_code"})
+            time.sleep(1)  # slows down guessing
+            return self.send_json(401, {"error": "locked"})
+        if self.path == "/api/enter":
+            return self.send_json(200, {"ok": True})
+        messages = clean(body.get("messages"))
         if not messages or messages[-1]["role"] != "user":
             return self.send_json(400, {"error": "nothing to answer"})
 
