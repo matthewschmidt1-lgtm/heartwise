@@ -184,6 +184,7 @@
     declined: 'That reply could not be given.',
     cut_short: 'That reply was cut short.',
     no_code: 'Heartwise is closed until its owner sets an access code (a variable named <code>ACCESS_CODE</code>).',
+    resting: 'Heartwise has had many conversations today and is resting until tomorrow.',
     failed: 'Something went wrong on this end. Your words are safe.'
   };
 
@@ -201,7 +202,7 @@
     var el = document.createElement('div');
     el.className = 'note';
     el.innerHTML = NOTES[code] || NOTES.failed;
-    if (retry && code !== 'no_key' && code !== 'bad_key' && code !== 'key_shape' && code !== 'no_code') {
+    if (retry && code !== 'no_key' && code !== 'bad_key' && code !== 'key_shape' && code !== 'no_code' && code !== 'resting') {
       var b = document.createElement('button');
       b.type = 'button'; b.textContent = 'Try again';
       b.onclick = function () { el.remove(); answer(); };

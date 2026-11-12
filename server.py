@@ -8,6 +8,7 @@ import hmac
 import json
 import os
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -42,11 +43,26 @@ def access_code():
 
 
 def gate():
-    """'open' on your own machine with no code set, 'locked' when ACCESS_CODE is set,
-    'unset' when hosted without one (a public address never runs unprotected)."""
-    if access_code():
-        return "locked"
-    return "unset" if os.environ.get("RAILWAY_ENVIRONMENT") else "open"
+    """'locked' when an ACCESS_CODE is set, otherwise 'open' to anyone with the address."""
+    return "locked" if access_code() else "open"
+
+
+# With no access code, anyone with the address spends the owner's credit, so the
+# number of replies in a day is capped. Change it with a DAILY_REPLIES variable.
+_spent = {"day": None, "count": 0}
+_spent_lock = threading.Lock()
+
+
+def under_daily_cap():
+    cap = int(os.environ.get("DAILY_REPLIES") or 200)
+    with _spent_lock:
+        today = time.strftime("%Y-%m-%d", time.gmtime())
+        if _spent["day"] != today:
+            _spent.update(day=today, count=0)
+        if _spent["count"] >= cap:
+            return False
+        _spent["count"] += 1
+        return True
 
 
 def admitted(code):
@@ -164,6 +180,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.event({"done": True})
         if not has_key():
             return self.event({"error": "no_key"})
+        if not under_daily_cap():
+            return self.event({"error": "resting"})
         client = anthropic.Anthropic()
         try:
             try:
