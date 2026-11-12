@@ -177,7 +177,8 @@
 
   var NOTES = {
     no_key: 'No API key yet. On your own computer, copy <code>.env.example</code> to <code>.env</code> and paste your Anthropic key into it. On Railway, add a variable named <code>ANTHROPIC_API_KEY</code>. Then restart.',
-    bad_key: 'The API key in <code>.env</code> was not accepted. Check it and restart.',
+    bad_key: 'Anthropic did not accept the API key. Create a fresh key at console.anthropic.com and put it in <code>ANTHROPIC_API_KEY</code>, with nothing before or after it.',
+    key_shape: 'The value in <code>ANTHROPIC_API_KEY</code> is not an Anthropic API key. Those start with <code>sk-ant-</code> and come from console.anthropic.com.',
     busy: 'The line is busy right now. Your words are safe.',
     offline: 'Could not reach the service. Check your connection.',
     declined: 'That reply could not be given.',
@@ -200,7 +201,7 @@
     var el = document.createElement('div');
     el.className = 'note';
     el.innerHTML = NOTES[code] || NOTES.failed;
-    if (retry && code !== 'no_key' && code !== 'bad_key' && code !== 'no_code') {
+    if (retry && code !== 'no_key' && code !== 'bad_key' && code !== 'key_shape' && code !== 'no_code') {
       var b = document.createElement('button');
       b.type = 'button'; b.textContent = 'Try again';
       b.onclick = function () { el.remove(); answer(); };

@@ -173,7 +173,8 @@ class Handler(BaseHTTPRequestHandler):
                 # safe to try once more without the optional fallback feature.
                 self.relay(open_stream(client, messages, with_fallback=False))
         except anthropic.AuthenticationError:
-            self.event({"error": "bad_key"})
+            looks_right = os.environ.get("ANTHROPIC_API_KEY", "").startswith("sk-ant-")
+            self.event({"error": "bad_key" if looks_right else "key_shape"})
         except anthropic.RateLimitError:
             self.event({"error": "busy"})
         except anthropic.APIStatusError as e:
@@ -197,6 +198,10 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     load_env()
+    # A key pasted with spaces, a line break or quotation marks around it would be rejected.
+    for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+        if os.environ.get(name) is not None:
+            os.environ[name] = os.environ[name].strip().strip("'\"").strip()
     port = int(os.environ.get("PORT", "4400"))
     print("Heartwise is at http://localhost:%d%s" % (port, "  (rehearsal: canned replies)" if REHEARSAL else ""), flush=True)
     if not (REHEARSAL or has_key()):
