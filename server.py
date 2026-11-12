@@ -166,7 +166,11 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     load_env()
     port = int(os.environ.get("PORT", "4400"))
-    print("Heartwise is at http://localhost:%d%s" % (port, "  (rehearsal: canned replies)" if REHEARSAL else ""))
+    print("Heartwise is at http://localhost:%d%s" % (port, "  (rehearsal: canned replies)" if REHEARSAL else ""), flush=True)
     if not (REHEARSAL or has_key()):
         print("No API key yet. Put ANTHROPIC_API_KEY=... in %s" % (ROOT / ".env"))
-    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    # On a host such as Railway the server must accept outside connections; on your own
+    # machine it stays private to it.
+    hosted = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("HOST"))
+    host = os.environ.get("HOST") or ("0.0.0.0" if hosted else "127.0.0.1")
+    ThreadingHTTPServer((host, port), Handler).serve_forever()

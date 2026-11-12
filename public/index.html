@@ -156,7 +156,7 @@
   var messages = [], busy = false, aborter = null;
 
   var NOTES = {
-    no_key: 'No API key yet. Copy <code>.env.example</code> to <code>.env</code> in the heartwise folder, paste your Anthropic key into it, and restart.',
+    no_key: 'No API key yet. On your own computer, copy <code>.env.example</code> to <code>.env</code> and paste your Anthropic key into it. On Railway, add a variable named <code>ANTHROPIC_API_KEY</code>. Then restart.',
     bad_key: 'The API key in <code>.env</code> was not accepted. Check it and restart.',
     busy: 'The line is busy right now. Your words are safe.',
     offline: 'Could not reach the service. Check your connection.',
